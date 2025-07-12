@@ -2,13 +2,25 @@ import os
 import time
 from zteReboot import zteRouter
 import argparse
+import platform
+import subprocess
 
 first_start = True
 
 def is_internet_reachable():
-    """Performs a ping to Google to check connectivity."""
-    response = os.system("ping -c 1 -W 2 8.8.8.8 > /dev/null 2>&1")
-    return response == 0
+    """
+    Returns True if host (str) responds to a ping request.
+    Remember that a host may not respond to a ping (ICMP) request even if the host name is valid.
+    """
+    host = "google.com"
+
+    # Option for the number of packets as a function of
+    param = '-n' if platform.system().lower()=='windows' else '-c'
+
+    # Building the command. Ex: "ping -c 1 google.com"
+    command = ['ping', param, '1', host]
+
+    return subprocess.call(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
 
 def reboot_zte(zte_ip, zte_password):
     """Reboots the ZTE router."""
@@ -49,7 +61,7 @@ def monitor_internet(zte_ip, zte_password, openwrt_ip, openwrt_user, openwrt_pas
         else:
             print("Ping failed. Additional attempts...")
             for attempt in range(5):
-                time.sleep(2)  # Wait 2 seconds between attempts
+                time.sleep(5)  # Wait 5 seconds between attempts
                 if is_internet_reachable():
                     print("Connectivity restored on attempt:", attempt + 1)
                     break
@@ -58,10 +70,14 @@ def monitor_internet(zte_ip, zte_password, openwrt_ip, openwrt_user, openwrt_pas
 
             else:
                 # After 5 failed attempts
-                reboot_zte(zte_ip, zte_password)
-                reboot_router(openwrt_ip, openwrt_user, openwrt_password)
-                print("Reboot executed")
+                try:
+                    reboot_zte(zte_ip, zte_password)
+                    reboot_router(openwrt_ip, openwrt_user, openwrt_password)
+                    print("Reboot executed")
+                except Exception as ex:
+                    print(f"Errore durante il reboot: {ex}")
                 first_start = True    
+
         time.sleep(ping_interval)  # Wait ping_interval seconds before the next ping
 
 if __name__ == "__main__":
